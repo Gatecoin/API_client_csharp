@@ -10,6 +10,7 @@ namespace GatecoinServiceInterface.WebSocket.Client
         private readonly string _url;
         private HttpMessageHandler _httpMessageHandler;
         private ILoggerFactory _loggerFactory;
+        private AccessToken _token;
 
         public StreamingClientBuilder(string url)
         {
@@ -25,6 +26,7 @@ namespace GatecoinServiceInterface.WebSocket.Client
         {
             return new StreamingClient<TDto>(
                     _url,
+                    _token,
                     _httpMessageHandler,
                     _loggerFactory);
         }
@@ -40,6 +42,19 @@ namespace GatecoinServiceInterface.WebSocket.Client
         public StreamingClientBuilder WithLoggerFactory(ILoggerFactory loggerFactory)
         {
             _loggerFactory = loggerFactory;
+            return this;
+        }
+
+        [PublicAPI]
+        public StreamingClientBuilder WithAccessToken(Action<AccessToken> tokenFactory)
+        {
+            if (tokenFactory == null)
+            {
+                throw new ArgumentException(nameof(tokenFactory));
+            }
+
+            _token = new AccessToken();
+            tokenFactory(_token);
             return this;
         }
     }

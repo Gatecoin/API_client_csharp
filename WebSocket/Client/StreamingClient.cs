@@ -11,12 +11,17 @@ namespace GatecoinServiceInterface.WebSocket.Client
 {
     internal sealed class StreamingClient<TDto> : IStreamingClient<TDto>
     {
+        private const string ApiPublicKey = "API_PUBLIC_KEY";
+        private const string ApiRequestSignature = "API_REQUEST_SIGNATURE";
+        private const string ApiRequestDate = "API_REQUEST_DATE";
+
         private readonly HubConnection _connection;
         private readonly HttpMessageHandler _httpMessageHandler;
         private readonly ILogger _logger;
 
         internal StreamingClient(
             string url,
+            AccessToken token = null,
             HttpMessageHandler httpMessageHandler = null,
             ILoggerFactory loggerFactory = null)
         {
@@ -38,12 +43,22 @@ namespace GatecoinServiceInterface.WebSocket.Client
                     urlHub,
                     options =>
                     {
-                        if (httpMessageHandler == null)
+                        if (httpMessageHandler != null)
                         {
-                            return;
+                            options.HttpMessageHandlerFactory = _ => httpMessageHandler;
                         }
 
-                        options.HttpMessageHandlerFactory = _ => httpMessageHandler;
+                        if (token != null && !IsTokenValid(token))
+                        {
+                            throw new ArgumentException("If AccessToken is passed as a parameter, all the fields should be valid");
+                        }
+
+                        if (token != null)
+                        {
+                            options.Headers.Add(ApiPublicKey, token.PublicKey);
+                            options.Headers.Add(ApiRequestSignature, token.SignedMessage);
+                            options.Headers.Add(ApiRequestDate, token.DateTime.ToUnixTimeString());
+                        }
                     })
                 .AddJsonProtocol()
                 .Build();
@@ -113,6 +128,14 @@ namespace GatecoinServiceInterface.WebSocket.Client
             _connection?.StopAsync().Wait();
             _connection?.DisposeAsync().Wait();
             _httpMessageHandler?.Dispose();
+        }
+
+        private static bool IsTokenValid(AccessToken token)
+        {
+            return
+                !string.IsNullOrWhiteSpace(token.PublicKey) &&
+                !string.IsNullOrWhiteSpace(token.SignedMessage) &&
+                token.DateTime != default(DateTime);
         }
     }
 }
